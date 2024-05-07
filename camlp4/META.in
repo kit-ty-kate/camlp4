@@ -28,7 +28,7 @@ description = "Base for Camlp4 syntax extensions"
 directory = "+camlp4"
 
 # For the toploop:
-requires(byte,toploop) = "dynlink"
+requires(byte,toploop) = "dynlink camlp-streams"
 archive(byte,toploop,camlp4o) = "camlp4o.cma"
 archive(byte,toploop,camlp4r) = "camlp4r.cma"
 
@@ -38,7 +38,7 @@ archive(syntax,preprocessor,camlp4r) = "-parser r -parser rp -printer p"
 preprocessor = "camlp4"
 
 package "lib" (
-  requires = "camlp4 dynlink"
+  requires = "camlp4 dynlink camlp-streams"
   version = "@@VERSION@@"
   description = "Camlp4 library"
   archive(byte) = "camlp4lib.cma"
@@ -54,7 +54,7 @@ package "gramlib" (
 
 # dont use camlp4.lib and camlp4.fulllib together'
 package "fulllib" (
-  requires = "camlp4 dynlink"
+  requires = "camlp4 dynlink camlp-streams"
   version = "@@VERSION@@"
   description = "Camlp4 library"
   error(pkg_camlp4.lib) = "camlp4.lib and camlp4.fulllib are incompatible"
