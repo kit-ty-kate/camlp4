@@ -35,6 +35,7 @@ value rec action_arg s sl =
   | Arg.Set r -> if s = "" then do { r.val := True; Some sl } else None
   | Arg.Clear r -> if s = "" then do { r.val := False; Some sl } else None
   | Arg.Rest f -> do { List.iter f [s :: sl]; Some [] }
+  | Arg.Rest_all f -> do { f [s :: sl]; Some [] }
   | Arg.String f ->
       if s = "" then
         match sl with
@@ -95,6 +96,8 @@ value rec action_arg s sl =
       match (if s = "" then sl else [s :: sl]) with
       [ [s :: sl] when List.mem s syms -> do { f s; Some sl }
       | _ -> None ]
+  | Arg.Expand _f ->
+      invalid_arg "Arg.Expand is unimplemented" (* TODO *)
   ];
 
 value common_start s1 s2 =
