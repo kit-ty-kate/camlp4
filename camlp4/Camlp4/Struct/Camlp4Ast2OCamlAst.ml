@@ -273,7 +273,7 @@ module Make (Ast : Sig.Camlp4Ast) = struct
           | (TyQuo _ s, t) -> (t, s)
           | _ -> error loc "invalid alias type" ]
         in
-        mktyp loc (Ptyp_alias (ctyp t) i)
+        mktyp loc (Ptyp_alias (ctyp t, with_loc i loc))
     | TyAny loc -> mktyp loc Ptyp_any
     | TyApp loc _ _ as f ->
         let (f, al) = ctyp_fa [] f in
@@ -921,7 +921,9 @@ value varify_constructors var_names =
     | <:expr@loc< fun [ $PaOlb _ lab p$ when $w$ -> $e$ ] >> ->
         let lab = paolab lab p in
         mkfun loc (Optional lab) None (patt_of_lab loc lab p) e w
-    | ExFun loc a -> mkexp loc (Pexp_function (match_case a []))
+    | ExFun loc a ->
+        mkexp loc
+          (Pexp_function ([], None, Pfunction_cases (match_case a [], mkloc loc, [])))
     | ExIfe loc e1 e2 e3 ->
         mkexp loc (Pexp_ifthenelse (expr e1) (expr e2) (Some (expr e3)))
     | ExInt loc s ->   mkexp loc (Pexp_constant (Pconst_integer (s, None)))
@@ -1087,7 +1089,9 @@ value varify_constructors var_names =
          [ <:expr<>> -> ()
        | _ -> assert False ]
      in
-     mkexp loc (Pexp_fun lab def p (expr e))
+     mkexp loc (Pexp_function
+        ([ { pparam_loc = mkloc loc; pparam_desc = Pparam_val (lab, def, p)} ],
+        None, Pfunction_body (expr e)))
   and mklabexp x acc =
     match x with
     [ <:rec_binding< $x$; $y$ >> ->
