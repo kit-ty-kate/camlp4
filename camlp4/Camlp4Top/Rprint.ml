@@ -309,7 +309,7 @@ and print_typargs ppf =
 and print_ty_label ppf lab =
   let open Asttypes in
   match lab with
-  [ Nolabel -> failwith "Not implemented"
+  [ Nolabel -> ()
   | Labelled lab | Optional lab ->
   if lab <> "" then fprintf ppf "%s%s:" (if lab.[0] = '?' then "" else "~") lab else ()]
 ;
