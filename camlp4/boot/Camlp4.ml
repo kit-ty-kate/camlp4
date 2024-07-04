@@ -15482,11 +15482,6 @@ module Struct =
             let mkctf loc d =
               { pctf_desc = d; pctf_loc = mkloc loc; pctf_attributes = []; }
 
-            let mkpolytype t =
-              match t.ptyp_desc with
-              | Ptyp_poly (_, _) -> t
-              | _ -> { (t) with ptyp_desc = Ptyp_poly ([], t); }
-
             let mkvirtual =
               function
               | Ast.ViVirtual -> Virtual
@@ -15757,7 +15752,7 @@ module Struct =
                   {
                     pof_loc = mkloc loc;
                     pof_desc =
-                      Otag ((with_loc lab loc), (mkpolytype (ctyp t)));
+                      Otag ((with_loc lab loc), (ctyp t));
                     pof_attributes = [];
                   } :: acc
               | _ -> assert false
@@ -15816,7 +15811,7 @@ module Struct =
                   {
                     pld_name = with_loc s sloc;
                     pld_mutable = Mutable;
-                    pld_type = mkpolytype (ctyp t);
+                    pld_type = (ctyp t);
                     pld_loc = mkloc loc;
                     pld_attributes = [];
                   }
@@ -15824,7 +15819,7 @@ module Struct =
                   {
                     pld_name = with_loc s sloc;
                     pld_mutable = Immutable;
-                    pld_type = mkpolytype (ctyp t);
+                    pld_type = (ctyp t);
                     pld_loc = mkloc loc;
                     pld_attributes = [];
                   }
@@ -17229,7 +17224,7 @@ module Struct =
                   (mkctf loc
                      (Pctf_method
                         (((with_loc s loc), (mkprivate pf), Concrete,
-                          (mkpolytype (ctyp t)))))) ::
+                          ((ctyp t)))))) ::
                     l
               | CgVal (loc, s, b, v, t) ->
                   (mkctf loc
@@ -17241,7 +17236,7 @@ module Struct =
                   (mkctf loc
                      (Pctf_method
                         (((with_loc s loc), (mkprivate b), Virtual,
-                          (mkpolytype (ctyp t)))))) ::
+                          ((ctyp t)))))) ::
                     l
               | CgAnt (_, _) -> assert false
             and class_expr =
@@ -17319,7 +17314,7 @@ module Struct =
                   let t =
                     (match t with
                      | Ast.TyNil _ -> None
-                     | t -> Some (mkpolytype (ctyp t))) in
+                     | t -> Some ((ctyp t))) in
                   let e = mkexp loc (Pexp_poly ((expr e), t))
                   in
                     (mkcf loc
@@ -17337,7 +17332,7 @@ module Struct =
                   (mkcf loc
                      (Pcf_method
                         (((with_loc s loc), (mkprivate pf),
-                          (Cfk_virtual (mkpolytype (ctyp t))))))) ::
+                          (Cfk_virtual ((ctyp t))))))) ::
                     l
               | CrVvr (loc, s, mf, t) ->
                   (mkcf loc
