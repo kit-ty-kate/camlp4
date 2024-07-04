@@ -20,6 +20,8 @@ true: debug
 # Enforce safe-string
 true: safe_string
 
+true: warn(@8)
+
 <camlp4/**/*>: use_import
 <camlp4/**/*.{byte,native}>: package(dynlink), package(camlp-streams)
 <camlp4/config/gen_import.*>: use_ocamlcommon

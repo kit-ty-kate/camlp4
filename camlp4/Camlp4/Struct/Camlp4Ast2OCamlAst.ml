@@ -802,6 +802,8 @@ value varify_constructors var_names =
           Ptyp_package(longident,List.map (fun (n,typ) -> (n,loop typ) ) lst)
       | Ptyp_extension x ->
           Ptyp_extension x
+      | Ptyp_open (mod_ident, t) ->
+          Ptyp_open (mod_ident, loop t)
 ]
     in
     {(t) with ptyp_desc = desc}
