@@ -200,6 +200,7 @@ module Options :
       | Arg.Set r -> if s = "" then (r := true; Some sl) else None
       | Arg.Clear r -> if s = "" then (r := false; Some sl) else None
       | Arg.Rest f -> (List.iter f (s :: sl); Some [])
+      | Arg.Rest_all f -> (f (s :: sl); Some [])
       | Arg.String f ->
           if s = ""
           then (match sl with | s :: sl -> (f s; Some sl) | [] -> None)
@@ -253,7 +254,9 @@ module Options :
           (match if s = "" then sl else s :: sl with
            | s :: sl when List.mem s syms -> (f s; Some sl)
            | _ -> None)
+      | Arg.Expand _f -> invalid_arg "Arg.Expand is unimplemented"
       
+    (* TODO *)
     let common_start s1 s2 =
       let rec loop i =
         if (i == (String.length s1)) || (i == (String.length s2))
@@ -15642,7 +15645,7 @@ module Struct =
                      | (t, TyQuo (_, s)) -> (t, s)
                      | (TyQuo (_, s), t) -> (t, s)
                      | _ -> error loc "invalid alias type")
-                  in mktyp loc (Ptyp_alias ((ctyp t), i))
+                  in mktyp loc (Ptyp_alias (((ctyp t), (with_loc i loc))))
               | TyAny loc -> mktyp loc Ptyp_any
               | (TyApp (loc, _, _) as f) ->
                   let (f, al) = ctyp_fa [] f in
@@ -15883,8 +15886,8 @@ module Struct =
                   {
                     pext_name = with_loc (conv_con s) sloc;
                     pext_kind =
-                      Pext_decl
-                        ([], (Pcstr_tuple (List.map ctyp (list_of_ctyp t []))),
+                      Pext_decl ([],
+                        (Pcstr_tuple (List.map ctyp (list_of_ctyp t []))),
                         None);
                     pext_loc = mkloc loc;
                     pext_attributes = [];
@@ -15894,8 +15897,8 @@ module Struct =
                   {
                     pext_name = with_loc (conv_con s) sloc;
                     pext_kind =
-                      Pext_decl
-                        ([], (Pcstr_tuple (List.map ctyp (list_of_ctyp t []))),
+                      Pext_decl ([],
+                        (Pcstr_tuple (List.map ctyp (list_of_ctyp t []))),
                         (Some (ctyp u)));
                     pext_loc = mkloc loc;
                     pext_attributes = [];
@@ -15903,7 +15906,8 @@ module Struct =
               | Ast.TyCol (loc, (Ast.TyId (_, (Ast.IdUid (sloc, s)))), t) ->
                   {
                     pext_name = with_loc (conv_con s) sloc;
-                    pext_kind = Pext_decl ([], (Pcstr_tuple []), (Some (ctyp t)));
+                    pext_kind =
+                      Pext_decl ([], (Pcstr_tuple []), (Some (ctyp t)));
                     pext_loc = mkloc loc;
                     pext_attributes = [];
                   }
@@ -16011,7 +16015,8 @@ module Struct =
               | Ast.TyApp (_, t1, t2) ->
                   type_parameters t1 (type_parameters t2 acc)
               | Ast.TyQuP (_, s) -> (s, (Covariant, NoInjectivity)) :: acc
-              | Ast.TyQuM (_, s) -> (s, (Contravariant, NoInjectivity)) :: acc
+              | Ast.TyQuM (_, s) ->
+                  (s, (Contravariant, NoInjectivity)) :: acc
               | Ast.TyQuo (_, s) -> (s, (NoVariance, NoInjectivity)) :: acc
               | _ -> assert false
               
@@ -16032,23 +16037,30 @@ module Struct =
               | Ast.TyApp (_, t1, t2) ->
                   optional_type_parameters t1
                     (optional_type_parameters t2 acc)
-              | Ast.TyQuP (loc, s) -> ((ptyp_var loc s), (Covariant, NoInjectivity)) :: acc
-              | Ast.TyAnP loc -> ((ptyp_any loc), (Covariant, NoInjectivity)) :: acc
+              | Ast.TyQuP (loc, s) ->
+                  ((ptyp_var loc s), (Covariant, NoInjectivity)) :: acc
+              | Ast.TyAnP loc ->
+                  ((ptyp_any loc), (Covariant, NoInjectivity)) :: acc
               | Ast.TyQuM (loc, s) ->
                   ((ptyp_var loc s), (Contravariant, NoInjectivity)) :: acc
-              | Ast.TyAnM loc -> ((ptyp_any loc), (Contravariant, NoInjectivity)) :: acc
-              | Ast.TyQuo (loc, s) -> ((ptyp_var loc s), (NoVariance, NoInjectivity)) :: acc
-              | Ast.TyAny loc -> ((ptyp_any loc), (NoVariance, NoInjectivity)) :: acc
+              | Ast.TyAnM loc ->
+                  ((ptyp_any loc), (Contravariant, NoInjectivity)) :: acc
+              | Ast.TyQuo (loc, s) ->
+                  ((ptyp_var loc s), (NoVariance, NoInjectivity)) :: acc
+              | Ast.TyAny loc ->
+                  ((ptyp_any loc), (NoVariance, NoInjectivity)) :: acc
               | _ -> assert false
               
             let rec class_parameters t acc =
               match t with
               | Ast.TyCom (_, t1, t2) ->
                   class_parameters t1 (class_parameters t2 acc)
-              | Ast.TyQuP (loc, s) -> ((ptyp_var loc s), (Covariant, NoInjectivity)) :: acc
+              | Ast.TyQuP (loc, s) ->
+                  ((ptyp_var loc s), (Covariant, NoInjectivity)) :: acc
               | Ast.TyQuM (loc, s) ->
                   ((ptyp_var loc s), (Contravariant, NoInjectivity)) :: acc
-              | Ast.TyQuo (loc, s) -> ((ptyp_var loc s), (NoVariance, NoInjectivity)) :: acc
+              | Ast.TyQuo (loc, s) ->
+                  ((ptyp_var loc s), (NoVariance, NoInjectivity)) :: acc
               | _ -> assert false
               
             let rec type_parameters_and_type_name t acc =
@@ -16142,7 +16154,7 @@ module Struct =
                   (Ast.PaTup (_, (Ast.PaAny loc_any)))) ->
                   mkpat loc
                     (Ppat_construct ((lident_with_loc (conv_con s) sloc),
-                       (Some ([], mkpat loc_any Ppat_any))))
+                       (Some (([], (mkpat loc_any Ppat_any))))))
               | (PaApp (loc, _, _) as f) ->
                   let (f, al) = patt_fa [] f in
                   let al = List.map patt al
@@ -16153,7 +16165,7 @@ module Struct =
                            (match al with
                             | [ a ] -> a
                             | _ -> mkpat loc (Ppat_tuple al))
-                         in mkpat loc (Ppat_construct (li, (Some ([], a))))
+                         in mkpat loc (Ppat_construct (li, (Some (([], a)))))
                      | Ppat_variant (s, None) ->
                          let a =
                            (match al with
@@ -16209,7 +16221,8 @@ module Struct =
               | PaStr (loc, s) ->
                   mkpat loc
                     (Ppat_constant
-                       (Pconst_string ((string_of_string_token loc s), Loc.to_ocaml_location loc, None)))
+                       (Pconst_string ((string_of_string_token loc s),
+                          (Loc.to_ocaml_location loc), None)))
               | Ast.PaTup (loc, (Ast.PaCom (_, p1, p2))) ->
                   mkpat loc
                     (Ppat_tuple
@@ -16221,7 +16234,8 @@ module Struct =
               | PaVrn (loc, s) ->
                   mkpat loc (Ppat_variant ((conv_con s), None))
               | PaLaz (loc, p) -> mkpat loc (Ppat_lazy (patt p))
-              | PaMod (loc, m) -> mkpat loc (Ppat_unpack (with_loc (Some m) loc))
+              | PaMod (loc, m) ->
+                  mkpat loc (Ppat_unpack (with_loc (Some m) loc))
               | PaExc (loc, p) -> mkpat loc (Ppat_exception (patt p))
               | PaAtt (loc, s, str, e) ->
                   let e = patt e
@@ -16313,6 +16327,8 @@ module Struct =
                         ((longident,
                           (List.map (fun (n, typ) -> (n, (loop typ))) lst)))
                   | Ptyp_extension x -> Ptyp_extension x
+                  | Ptyp_open ((mod_ident, t)) ->
+                      Ptyp_open ((mod_ident, (loop t)))
                 in { (t) with ptyp_desc = desc; }
               and loop_object_field x =
                 let pof_desc =
@@ -16462,7 +16478,12 @@ module Struct =
                   let lab = paolab lab p
                   in
                     mkfun loc (Optional lab) None (patt_of_lab loc lab p) e w
-              | ExFun (loc, a) -> mkexp loc (Pexp_function (match_case a []))
+              | ExFun (loc, a) ->
+                  mkexp loc
+                    (Pexp_function
+                       (([], None,
+                         (Pfunction_cases
+                            (((match_case a []), (mkloc loc), []))))))
               | ExIfe (loc, e1, e2, e3) ->
                   mkexp loc
                     (Pexp_ifthenelse ((expr e1), (expr e2), (Some (expr e3))))
@@ -16488,8 +16509,8 @@ module Struct =
                      | bi -> mkexp loc (Pexp_let ((mkrf rf), bi, e)))
               | ExLmd (loc, i, me, e) ->
                   mkexp loc
-                    (Pexp_letmodule ((with_loc (Some i) loc), (module_expr me),
-                       (expr e)))
+                    (Pexp_letmodule ((with_loc (Some i) loc),
+                       (module_expr me), (expr e)))
               | ExMat (loc, e, a) ->
                   mkexp loc (Pexp_match ((expr e), (match_case a [])))
               | ExNew (loc, id) -> mkexp loc (Pexp_new (long_type_ident id))
@@ -16534,7 +16555,8 @@ module Struct =
               | ExStr (loc, s) ->
                   mkexp loc
                     (Pexp_constant
-                       (Pconst_string ((string_of_string_token loc s), Loc.to_ocaml_location loc, None)))
+                       (Pconst_string ((string_of_string_token loc s),
+                          (Loc.to_ocaml_location loc), None)))
               | ExTry (loc, e, a) ->
                   mkexp loc (Pexp_try ((expr e), (match_case a [])))
               | Ast.ExTup (loc, (Ast.ExCom (_, e1, e2))) ->
@@ -16688,7 +16710,14 @@ module Struct =
               in { pc_lhs = p; pc_guard = g; pc_rhs = expr e; }
             and mkfun loc lab def p e w =
               let () = match w with | Ast.ExNil _ -> () | _ -> assert false
-              in mkexp loc (Pexp_fun (lab, def, p, (expr e)))
+              in
+                mkexp loc
+                  (Pexp_function
+                     (([ {
+                           pparam_loc = mkloc loc;
+                           pparam_desc = Pparam_val ((lab, def, p));
+                         } ],
+                       None, (Pfunction_body (expr e)))))
             and mklabexp x acc =
               match x with
               | Ast.RbSem (_, x, y) -> mklabexp x (mklabexp y acc)
@@ -16742,11 +16771,11 @@ module Struct =
                   error loc "abstract/nil module type not allowed here"
               | Ast.MtId (loc, i) -> mkmty loc (Pmty_ident (long_uident i))
               | Ast.MtFun ((loc, "*", Ast.MtNil _, mt)) ->
-                  mkmty loc
-                    (Pmty_functor (Unit, (module_type mt)))
+                  mkmty loc (Pmty_functor (Unit, (module_type mt)))
               | Ast.MtFun (loc, n, nt, mt) ->
                   mkmty loc
-                    (Pmty_functor (Named ((with_loc (Some n) loc), (module_type nt)),
+                    (Pmty_functor
+                       ((Named ((with_loc (Some n) loc), (module_type nt))),
                        (module_type mt)))
               | Ast.MtQuo (loc, _) ->
                   error loc "module type variable not allowed here"
@@ -16793,7 +16822,7 @@ module Struct =
                             {
                               pext_name = with_loc (conv_con s) loc;
                               pext_kind =
-                                Pext_decl ([], (Pcstr_tuple []), None);
+                                Pext_decl (([], (Pcstr_tuple []), None));
                               pext_attributes = [];
                               pext_loc = mkloc loc;
                             };
@@ -16813,9 +16842,10 @@ module Struct =
                               pext_name = with_loc (conv_con s) loc;
                               pext_kind =
                                 Pext_decl
-                                  ([], (Pcstr_tuple
+                                  (([],
+                                    (Pcstr_tuple
                                        (List.map ctyp (list_of_ctyp t []))),
-                                    None);
+                                    None));
                               pext_attributes = [];
                               pext_loc = mkloc loc;
                             };
@@ -16929,11 +16959,11 @@ module Struct =
                   mkmod loc
                     (Pmod_apply ((module_expr me1), (module_expr me2)))
               | Ast.MeFun ((loc, "*", Ast.MtNil _, me)) ->
-                  mkmod loc
-                    (Pmod_functor (Unit, (module_expr me)))
+                  mkmod loc (Pmod_functor (Unit, (module_expr me)))
               | Ast.MeFun (loc, n, mt, me) ->
                   mkmod loc
-                    (Pmod_functor (Named ((with_loc (Some n) loc), (module_type mt)),
+                    (Pmod_functor
+                       ((Named ((with_loc (Some n) loc), (module_type mt))),
                        (module_expr me)))
               | Ast.MeStr (loc, sl) ->
                   mkmod loc (Pmod_structure (str_item sl []))
@@ -16987,7 +17017,7 @@ module Struct =
                             {
                               pext_name = with_loc (conv_con s) loc;
                               pext_kind =
-                                Pext_decl ([], (Pcstr_tuple []), None);
+                                Pext_decl (([], (Pcstr_tuple []), None));
                               pext_attributes = [];
                               pext_loc = mkloc loc;
                             };
@@ -17006,9 +17036,10 @@ module Struct =
                               pext_name = with_loc (conv_con s) loc;
                               pext_kind =
                                 Pext_decl
-                                  ([], (Pcstr_tuple
+                                  (([],
+                                    (Pcstr_tuple
                                        (List.map ctyp (list_of_ctyp t []))),
-                                    None);
+                                    None));
                               pext_attributes = [];
                               pext_loc = mkloc loc;
                             };
