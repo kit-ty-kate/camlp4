@@ -307,7 +307,11 @@ and print_typargs ppf =
   | tyl ->
       fprintf ppf "@[<1>(%a)@]@ " (print_typlist print_out_type ",") tyl ]
 and print_ty_label ppf lab =
-  if lab <> "" then fprintf ppf "%s%s:" (if lab.[0] = '?' then "" else "~") lab else ()
+  let open Asttypes in
+  match lab with
+  [ Nolabel -> ()
+  | Labelled lab | Optional lab ->
+  if lab <> "" then fprintf ppf "%s%s:" (if lab.[0] = '?' then "" else "~") lab else ()]
 ;
 
 value type_parameter ppf (ty, (var, inj)) =
@@ -405,11 +409,13 @@ and print_out_signature ppf =
 and print_out_sig_item ppf =
   fun
   [ Osig_class vir_flag name params clt rs ->
+      let params = List.map (fun ot -> (ot.ot_name, ot.ot_variance)) params in
       fprintf ppf "@[<2>%s%s@ %a%s@ :@ %a@]"
         (if rs = Orec_next then "and" else "class")
         (if vir_flag then " virtual" else "") print_out_class_params params
         name Toploop.print_out_class_type.val clt
   | Osig_class_type vir_flag name params clt rs ->
+      let params = List.map (fun ot -> (ot.ot_name, ot.ot_variance)) params in
       fprintf ppf "@[<2>%s%s@ %a%s@ =@ %a@]"
         (if rs = Orec_next then "and" else "class type")
         (if vir_flag then " virtual" else "") print_out_class_params params
@@ -468,8 +474,9 @@ and print_out_type_decl kwd ppf { otype_name    = name
   let type_defined ppf =
     match args with
     [ [] -> fprintf ppf "%s" name
-    | [arg] -> fprintf ppf "%s %a" name type_parameter arg
+    | [arg] -> fprintf ppf "%s %a" name type_parameter (arg.ot_name, arg.ot_variance)
     | _ ->
+        let args = List.map (fun ot -> (ot.ot_name, ot.ot_variance)) args in
         fprintf ppf "%s@ %a" name
           (print_list type_parameter (fun ppf -> fprintf ppf "@ ")) args ]
   and print_kind ppf ty =
