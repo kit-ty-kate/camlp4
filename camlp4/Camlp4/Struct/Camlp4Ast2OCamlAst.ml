@@ -107,12 +107,6 @@ module Make (Ast : Sig.Camlp4Ast) = struct
   value mkcf loc d = { pcf_desc = d; pcf_loc = mkloc loc; pcf_attributes = []};
   value mkctf loc d = { pctf_desc = d; pctf_loc = mkloc loc; pctf_attributes = []};
 
-  value mkpolytype t =
-    match t.ptyp_desc with
-    [ Ptyp_poly _ _ -> t
-    | _ -> { (t) with ptyp_desc = Ptyp_poly [] t } ]
-  ;
-
   value mkvirtual = fun
     [ <:virtual_flag< virtual >> -> Virtual
     | <:virtual_flag<>> -> Concrete
@@ -355,7 +349,7 @@ and row_field =
     | <:ctyp< $t1$; $t2$ >> -> meth_list t1 (meth_list t2 acc)
     | <:ctyp@loc< $lid:lab$ : $t$ >> ->
         [{ pof_loc = mkloc loc
-         ; pof_desc = Otag (with_loc lab loc) (mkpolytype (ctyp t))
+         ; pof_desc = Otag (with_loc lab loc) (ctyp t)
          ; pof_attributes = []} :: acc]
     | _ -> assert False ]
 
@@ -400,14 +394,14 @@ and row_field =
     [ <:ctyp@loc< $id:(<:ident@sloc< $lid:s$ >>)$ : mutable $t$ >> ->
       {pld_name=with_loc s sloc;
        pld_mutable=Mutable;
-       pld_type=mkpolytype (ctyp t);
+       pld_type=ctyp t;
        pld_loc=mkloc loc;
        pld_attributes=[];
       }
     | <:ctyp@loc< $id:(<:ident@sloc< $lid:s$ >>)$ : $t$ >> ->
       {pld_name=with_loc s sloc;
        pld_mutable=Immutable;
-       pld_type=mkpolytype (ctyp t);
+       pld_type=ctyp t;
        pld_loc=mkloc loc;
        pld_attributes=[];
       }
@@ -1415,11 +1409,11 @@ value varify_constructors var_names =
         class_sig_item csg1 (class_sig_item csg2 l)
     | CgInh loc ct -> [mkctf loc (Pctf_inherit (class_type ct)) :: l]
     | CgMth loc s pf t ->
-        [mkctf loc (Pctf_method (with_loc s loc, mkprivate pf, Concrete, mkpolytype (ctyp t))) :: l]
+        [mkctf loc (Pctf_method (with_loc s loc, mkprivate pf, Concrete, ctyp t)) :: l]
     | CgVal loc s b v t ->
         [mkctf loc (Pctf_val (with_loc s loc, mkmutable b, mkvirtual v, ctyp t)) :: l]
     | CgVir loc s b t ->
-        [mkctf loc (Pctf_method (with_loc s loc, mkprivate b, Virtual, mkpolytype (ctyp t))) :: l]
+        [mkctf loc (Pctf_method (with_loc s loc, mkprivate b, Virtual, ctyp t)) :: l]
     | CgAnt _ _ -> assert False ]
   and class_expr =
     fun
@@ -1476,13 +1470,13 @@ value varify_constructors var_names =
         let t =
           match t with
           [ <:ctyp<>> -> None
-          | t -> Some (mkpolytype (ctyp t)) ] in
+          | t -> Some (ctyp t) ] in
         let e = mkexp loc (Pexp_poly (expr e) t) in
         [mkcf loc (Pcf_method (with_loc s loc, mkprivate pf, Cfk_concrete (override_flag loc ov, e))) :: l]
     | CrVal loc s ov mf e ->
         [mkcf loc (Pcf_val (with_loc s loc, mkmutable mf, Cfk_concrete (override_flag loc ov, expr e))) :: l]
     | CrVir loc s pf t ->
-        [mkcf loc (Pcf_method (with_loc s loc, mkprivate pf, Cfk_virtual (mkpolytype (ctyp t)))) :: l]
+        [mkcf loc (Pcf_method (with_loc s loc, mkprivate pf, Cfk_virtual (ctyp t))) :: l]
     | CrVvr loc s mf t ->
         [mkcf loc (Pcf_val (with_loc s loc, mkmutable mf, Cfk_virtual (ctyp t))) :: l]
     | CrAnt _ _ -> assert False ];
