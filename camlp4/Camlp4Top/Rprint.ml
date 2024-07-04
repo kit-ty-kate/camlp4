@@ -20,9 +20,10 @@
 
 (* This file originally come from typing/oprint.ml *)
 
-open Format;
 open Outcometree;
 open Camlp4;
+
+value fprintf = Format_doc.fprintf;
 
 exception Ellipsis;
 value cautious f ppf arg =
@@ -502,6 +503,10 @@ and print_out_type_decl kwd ppf { otype_name    = name
 
 (* Phrases *)
 
+value deprecated_printer f ppf x =
+  Format_doc.deprecated_printer (fun ppf -> f ppf x) ppf
+;
+
 value print_out_exception ppf exn outv =
   match exn with
   [ Sys.Break -> fprintf ppf "Interrupted.@."
@@ -509,7 +514,7 @@ value print_out_exception ppf exn outv =
   | Stack_overflow ->
       fprintf ppf "Stack overflow during evaluation (looping recursion?).@."
   | _ ->
-      fprintf ppf "@[Exception:@ %a.@]@." Toploop.print_out_value.val outv ]
+      fprintf ppf "@[Exception:@ %a.@]@." (deprecated_printer Toploop.print_out_value.val) outv ]
 ;
 
 value rec print_items ppf =
@@ -520,7 +525,7 @@ value rec print_items ppf =
         match valopt with
         [ Some v ->
             fprintf ppf "@[<2>%a =@ %a@]" Toploop.print_out_sig_item.val tree
-              Toploop.print_out_value.val v
+              (deprecated_printer Toploop.print_out_value.val) v
         | None -> fprintf ppf "@[%a@]" Toploop.print_out_sig_item.val tree ];
         if items <> [] then fprintf ppf "@ %a" print_items items else ()
       } ]
@@ -530,16 +535,16 @@ value print_out_phrase ppf =
   fun
   [ Ophr_eval outv ty ->
       fprintf ppf "@[- : %a@ =@ %a@]@." Toploop.print_out_type.val ty
-        Toploop.print_out_value.val outv
+        (deprecated_printer Toploop.print_out_value.val) outv
   | Ophr_signature [] -> ()
   | Ophr_signature items -> fprintf ppf "@[<v>%a@]@." print_items items
   | Ophr_exception (exn, outv) -> print_out_exception ppf exn outv ]
 ;
 
-Toploop.print_out_value.val := print_out_value;
+Toploop.print_out_value.val := Format_doc.compat print_out_value;
 Toploop.print_out_type.val := print_out_type;
 Toploop.print_out_class_type.val := print_out_class_type;
 Toploop.print_out_module_type.val := print_out_module_type;
 Toploop.print_out_sig_item.val := print_out_sig_item;
 Toploop.print_out_signature.val := print_out_signature;
-Toploop.print_out_phrase.val := print_out_phrase;
+Toploop.print_out_phrase.val := Format_doc.compat print_out_phrase;
