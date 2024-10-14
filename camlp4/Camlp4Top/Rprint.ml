@@ -244,7 +244,12 @@ and print_out_constr ppf constr =
   | (_,None) ->
       fprintf ppf "@[<2>%s of@ %a@]" name
         (print_typlist print_out_type " and") tyl ]
-and print_out_label ppf (name, mut, arg) =
+and print_out_label ppf out_label =
+  let { olab_name = name; olab_mut = mut; olab_type = arg } = out_label in
+  let mut = match mut with
+    [ Asttypes.Mutable -> True
+    | Asttypes.Immutable -> False ]
+  in
   fprintf ppf "@[<2>%s :@ %s%a@]" name (if mut then "mutable " else "")
     print_out_type arg
 and print_out_extension_constructor ppf ext =
